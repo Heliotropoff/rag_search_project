@@ -1,6 +1,7 @@
 import argparse
 import json
 import string
+from nltk.stem import PorterStemmer
 
 FILEPATH = "data/movies.json"
 LIMIT = 5
@@ -18,10 +19,11 @@ def main() -> None:
         case "search":
             data:dict[str,dict] = loadData(filepath=FILEPATH)
             sw = get_stopword_tokens(stopword_file_path="data/stopwords.txt")
+            stemmer = PorterStemmer()
             query_raw = args.query
             query_processed = preprocessTerm(query=query_raw )
             print(f"Searching for: {query_raw}")
-            matches = searchFetchKeyWord(keyword=query_processed, movieData= data, limit=LIMIT, stopWords=sw)
+            matches = searchFetchKeyWord(keyword=query_processed, movieData= data, limit=LIMIT, stopWords=sw, stemmer=stemmer)
             for i in range(len(matches)):
                 print(f"{i+1}. {matches[i]}")
         case _:
@@ -42,7 +44,7 @@ def dropPunctuation(str_with_punctuation):
     return str_WITHOUT_punctuation
 
 
-def tokenizeAndCompare(keyword, title, stopwords):
+def tokenizeAndCompare(keyword, title, stopwords, stemmer):
     keyword_unique_tokens = set(keyword.split())
     title_unique_tokens = set(title.split())
     clean_kw_unique_tokens = remove_stopwords(keyword_unique_tokens, stopwords)
@@ -50,7 +52,7 @@ def tokenizeAndCompare(keyword, title, stopwords):
     substing_flag = False
     for title_token in clean_title_unique_tokens:
         for kw_token in clean_kw_unique_tokens:
-            if kw_token in title_token:
+            if stemmer.stem(kw_token) in stemmer.stem(title_token):
                 substing_flag = True
                 break
     return substing_flag
@@ -66,12 +68,12 @@ def loadData(filepath):
          data = json.load(dataFile)
          return data
 
-def searchFetchKeyWord(keyword: list[str], movieData:dict[str,dict], stopWords:set[str],limit:int = 5) ->list[str]:
+def searchFetchKeyWord(keyword: list[str], movieData:dict[str,dict], stopWords:set[str], stemmer, limit:int = 5) ->list[str]:
     matches: list[str] = []
     for movie in movieData["movies"]:
         title_raw = movie.get("title","")
         title = preprocessTerm(title_raw)
-        if tokenizeAndCompare(keyword=keyword,  title=title, stopwords= stopWords):
+        if tokenizeAndCompare(keyword=keyword,  title=title, stopwords= stopWords, stemmer=stemmer):
             matches.append(movie.get("title",""))
         if len(matches) >= limit:
             break
