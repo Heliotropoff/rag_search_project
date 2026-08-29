@@ -21,16 +21,17 @@ def main() -> None:
             sw = get_stopword_tokens(stopword_file_path="data/stopwords.txt")
             stemmer = PorterStemmer()
             query_raw = args.query
-            query_processed = preprocessTerm(query=query_raw )
+            query_processed = normalise_term_string(query=query_raw )
+            query_tokens = tokenize_text(query_processed, sw,  stemmer)
             print(f"Searching for: {query_raw}")
-            matches = searchFetchKeyWord(keyword=query_processed, movieData= data, limit=LIMIT, stopWords=sw, stemmer=stemmer)
+            matches = searchFetchKeyWord(search_term_tokens=query_tokens, movieData= data, limit=LIMIT, stopWords=sw, stemmer=stemmer)
             for i in range(len(matches)):
                 print(f"{i+1}. {matches[i]}")
         case _:
             parser.print_help()
 
 
-def preprocessTerm(query):
+def normalise_term_string(query):
     p_query = query.lower()
     p_query = dropPunctuation(p_query)
     p_query = p_query.replace("  ", " ")
@@ -43,51 +44,67 @@ def dropPunctuation(str_with_punctuation):
     str_WITHOUT_punctuation = str_with_punctuation.translate(punctReplacementMap)
     return str_WITHOUT_punctuation
 
+def tokenize(term):
+    return set(term.split())
 
-def tokenizeAndCompare(keyword, title, stopwords, stemmer):
-    keyword_unique_tokens = set(keyword.split())
-    title_unique_tokens = set(title.split())
-    clean_kw_unique_tokens = remove_stopwords(keyword_unique_tokens, stopwords)
-    clean_title_unique_tokens = remove_stopwords(title_unique_tokens, stopwords)
-    substing_flag = False
-    for title_token in clean_title_unique_tokens:
-        for kw_token in clean_kw_unique_tokens:
-            if stemmer.stem(kw_token) in stemmer.stem(title_token):
-                substing_flag = True
-                break
-    return substing_flag
+def get_stopword_tokens(stopword_file_path):
+    with open(stopword_file_path) as sw_file:
+        sw_string_raw = sw_file.read()
+        sw_string = normalise_term_string(sw_string_raw)
+        sw_list = sw_string.splitlines()
+        sw_set = set(sw_list)
+        return sw_set
 
-    #comon_tokens = keyword_unique_tokens.intersection(title_unique_tokens)
-    #if comon_tokens:
-        #return True
-    #return False
+def remove_stopwords(term_token_set, stopwords_token_set):
+    return term_token_set - stopwords_token_set
 
+def stem_tokens(tokens, stemmer):
+    stemmed_tokens = []
+    for token in tokens:
+        stemmed_tokens.append(stemmer.stem(token))
+    return set(stemmed_tokens)
+
+def tokenize_text(text, stopwords, stemmer):
+    text_tokens = tokenize(text)
+    text_tokens = remove_stopwords(text_tokens, stopwords)
+    text_tokens = stem_tokens(text_tokens, stemmer)
+    return text_tokens
 
 def loadData(filepath):
     with open(file=filepath) as dataFile:
          data = json.load(dataFile)
          return data
 
-def searchFetchKeyWord(keyword: list[str], movieData:dict[str,dict], stopWords:set[str], stemmer, limit:int = 5) ->list[str]:
+def searchFetchKeyWord(search_term_tokens: set[str], movieData:dict[str,dict], stopWords:set[str], stemmer, limit:int = 5) ->list[str]:
     matches: list[str] = []
     for movie in movieData["movies"]:
         title_raw = movie.get("title","")
-        title = preprocessTerm(title_raw)
-        if tokenizeAndCompare(keyword=keyword,  title=title, stopwords= stopWords, stemmer=stemmer):
+        title = normalise_term_string(title_raw)
+        title_tokens = tokenize_text(title, stopWords, stemmer)
+        common_stems = search_term_tokens.intersection(title_tokens)
+        if common_stems:
             matches.append(movie.get("title",""))
         if len(matches) >= limit:
             break
     return matches
 
-def get_stopword_tokens(stopword_file_path):
-    with open(stopword_file_path) as sw_file:
-        sw_string_raw = sw_file.read()
-        sw_string = preprocessTerm(sw_string_raw)
-        sw_list = sw_string.splitlines()
-        sw_set = set(sw_list)
-        return sw_set
-def remove_stopwords(term_token_set, stopwords_token_set):
-    return term_token_set - stopwords_token_set
+
+
+class InvertedIndex:
+    def __init__(self):
+        self.index: dict[str,set] = dict()
+        self.docmap: dict[str,dict] = dict()
+
+    def __add_document(self, doc_id, text):
+        text_tokens = tokenize(text)
+
+    def get_documents(self, term):
+        pass
+
+    def build(self):
+        pass
+
+
 
 if __name__ == "__main__":
      main()
