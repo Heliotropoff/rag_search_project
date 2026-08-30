@@ -2,7 +2,7 @@ import string
 from nltk.stem import PorterStemmer
 import json
 import pickle
-import pprint
+from collections import Counter
 FILEPATH = "data/movies.json"
 STEMMER = PorterStemmer()
 
@@ -81,16 +81,23 @@ class InvertedIndex:
     def __init__(self):
         self.index: dict[str,set] = dict()
         self.docmap: dict[int,dict] = dict()
+        self.term_frequencies: dict[int, Counter] = dict()
         self.__index_filepath = "cache/index.pkl"
         self.__docmap_filepath = "cache/docmap.pkl"
+        self.__term_freqspath = "cache/term_frequencies.pkl"
 
     def __add_document(self, doc_id, text):
         text_tokens = tokenize_text(text)
+        word_list_for_counting = prepare_text_for_counting(text=text)
         for token in text_tokens:
             if not self.index.get(token,False):
                 self.index[token] = set([doc_id])
             else:
                 self.index[token].add(doc_id)
+        if doc_id not in self.term_frequencies:
+            self.term_frequencies[doc_id]= Counter(word_list_for_counting)
+        else:
+            self.term_frequencies[doc_id].update(word_list_for_counting)
 
     def get_documents(self, term):
         docs = self.index.get(term,"")
@@ -110,15 +117,37 @@ class InvertedIndex:
             pickle.dump(obj=self.index, file=index_file)
         with open(self.__docmap_filepath, "wb") as docmap_file:
             pickle.dump(obj=self.docmap,file=docmap_file)
+        with open(self.__term_freqspath, "wb") as termfreqs_file:
+            pickle.dump(obj=self.term_frequencies,file=termfreqs_file)
 
     def load(self):
         with open(self.__index_filepath, "rb") as index_file:
             self.index = pickle.load(file=index_file)
         with open(self.__docmap_filepath,"rb") as docmap_file:
             self.docmap = pickle.load(file=docmap_file)
+        with open(self.__term_freqspath,"rb") as termfreqs_file:
+            self.term_frequencies = pickle.load(file=termfreqs_file)
 
+    def get_tf(self, doc_id, term):
+        return self.term_frequencies[doc_id][term]
 
 def build_command():
     movie_index = InvertedIndex()
     movie_index.build()
     movie_index.save()
+
+def single_term_tokenizer(term):
+    term_tokens = tokenize_text(text=term)
+    if len(term_tokens) != 1:
+        raise Exception("single_term_tokenier has returned more than one toke")
+    return list(term_tokens)[0]
+
+def prepare_text_for_counting(text):
+    text_norm = normalise_term_string(query=text)
+    word_list = text_norm.split()
+    cleaned_from_stop_words_and_stemmed = []
+    for word in word_list:
+        if word not in STOPWORDS:
+            word_stem = STEMMER.stem(word=word)
+            cleaned_from_stop_words_and_stemmed.append(word_stem)
+    return cleaned_from_stop_words_and_stemmed
