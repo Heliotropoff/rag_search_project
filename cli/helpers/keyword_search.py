@@ -2,7 +2,7 @@ import string
 from nltk.stem import PorterStemmer
 import json
 import pickle
-
+import pprint
 FILEPATH = "data/movies.json"
 STEMMER = PorterStemmer()
 
@@ -60,22 +60,29 @@ def loadData():
          data = json.load(dataFile)
          return data
 
-def searchFetchKeyWord(search_term_tokens: set[str], movieData:dict[str,dict],limit:int = 5) ->list[str]:
-    matches: list[str] = []
-    for movie in movieData["movies"]:
-        title_raw = movie.get("title","")
-        title_tokens = tokenize_text(title_raw)
-        common_stems = search_term_tokens.intersection(title_tokens)
-        if common_stems:
-            matches.append(movie.get("title",""))
+def searchFetchKeyWord(search_term_tokens: set[str], movieData,limit:int = 5) ->list[dict]:
+    matches: dict[int,None] = {}
+    matched_movies: list[dict[str,int|str]] = []
+    for term in search_term_tokens:
         if len(matches) >= limit:
             break
-    return matches
+        docs = movieData.get_documents(term)
+        for doc in docs:
+            if len(matches) < limit:
+                matches[doc] = None
+            else:
+                break
+    for match in list(matches): #extracting keys, the insertion order is preserved here
+        movie_doc = movieData.docmap[match]
+        matched_movies.append(movie_doc)
+    return matched_movies
 
 class InvertedIndex:
     def __init__(self):
         self.index: dict[str,set] = dict()
         self.docmap: dict[int,dict] = dict()
+        self.__index_filepath = "cache/index.pkl"
+        self.__docmap_filepath = "cache/docmap.pkl"
 
     def __add_document(self, doc_id, text):
         text_tokens = tokenize_text(text)
@@ -95,20 +102,23 @@ class InvertedIndex:
             movie_id = movie.get("id")
             title_and_description_string = f"{movie['title']} {movie['description']}"
             self.__add_document(doc_id=movie_id,text=title_and_description_string)
-            self.docmap = self.docmap[movie_id] = movie
+            self.docmap[movie_id] = movie
 
 
     def save(self):
-        index_filepath = "cache/index.pkl"
-        docmap_filepath = "cache/docmap.pkl"
-        with open(index_filepath,"wb") as index_file:
+        with open(self.__index_filepath,"wb") as index_file:
             pickle.dump(obj=self.index, file=index_file)
-        with open(docmap_filepath, "wb") as docmap_file:
+        with open(self.__docmap_filepath, "wb") as docmap_file:
             pickle.dump(obj=self.docmap,file=docmap_file)
+
+    def load(self):
+        with open(self.__index_filepath, "rb") as index_file:
+            self.index = pickle.load(file=index_file)
+        with open(self.__docmap_filepath,"rb") as docmap_file:
+            self.docmap = pickle.load(file=docmap_file)
+
 
 def build_command():
     movie_index = InvertedIndex()
     movie_index.build()
     movie_index.save()
-    docs = movie_index.get_documents("merida")
-    print(f"First document for token 'merida' = {docs[0]}")

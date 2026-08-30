@@ -1,5 +1,6 @@
 import argparse
 from helpers.keyword_search import *
+import sys
 LIMIT = 5
 
 
@@ -16,13 +17,19 @@ def main() -> None:
 
     match args.command:
         case "search":
-            data:dict[str,dict] = loadData()
+            movie_index = InvertedIndex()
+            try:
+                movie_index.load()
+            except Exception as e:
+                print(e)
+                sys.exit(1)
+            #data:dict[str,dict] = loadData()
             query_raw = args.query
             query_tokens = tokenize_text(query_raw)
             print(f"Searching for: {query_raw}")
-            matches = searchFetchKeyWord(search_term_tokens=query_tokens, movieData= data, limit=LIMIT)
+            matches = searchFetchKeyWord(search_term_tokens=query_tokens, movieData= movie_index, limit=LIMIT)
             for i in range(len(matches)):
-                print(f"{i+1}. {matches[i]}")
+                print(f"{i+1}. Title: {matches[i].get("title")}, ID: {matches[i].get("id")}")
         case "build":
             build_command()
         case _:
