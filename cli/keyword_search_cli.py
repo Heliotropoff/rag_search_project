@@ -21,6 +21,21 @@ def main() -> None:
     idf_parser = subparsers.add_parser("idf", help="Get the term inverse document frequency")
     idf_parser.add_argument("term", type=str, help="Term for which we want to get an idf value")
 
+    tf_idf_parser = subparsers.add_parser("tfidf", help="Get tf-idf value for a given document and term")
+    tf_idf_parser.add_argument("doc_id", type=int, help="Document id where we count tf-idf")
+    tf_idf_parser.add_argument("term", type=str, help="The term we want a tf-idf count for")
+
+    bm25_idf_parser = subparsers.add_parser("bm25idf", help="Get BM25 IDF score for a given term")
+    bm25_idf_parser.add_argument("term", type=str, help="Term to get BM25 IDF score for")
+
+    bm25_tf_parser = subparsers.add_parser("bm25tf", help="Get BM25 TF score for a given document ID and term")
+    bm25_tf_parser.add_argument("doc_id", type=int, help="Document ID")
+    bm25_tf_parser.add_argument("term", type=str, help="Term to get BM25 TF score for")
+    bm25_tf_parser.add_argument("k1", type=float, nargs="?", default=BM25_K1, help="Tunable BM25 K1 parameter")
+    bm25_tf_parser.add_argument("b", type=float, nargs="?", default=BM25_B, help = "Tubable BM25 b parameter")
+
+
+
 
     args = parser.parse_args()
 
@@ -67,6 +82,32 @@ def main() -> None:
             total_documents_count = len(movie_index.docmap)
             term_idf_value = math.log((total_documents_count + 1) / (associated_documents_count + 1))
             print(f"Inverse document frequency of '{args.term}': {term_idf_value:.2f}")
+        case "tfidf":
+            movie_index = InvertedIndex()
+            try:
+                movie_index.load()
+            except Exception as e:
+                print(e)
+                sys.exit(1)
+            doc_id = args.doc_id
+            term = args.term
+            term_frequeny = movie_index.get_tf(doc_id=doc_id, term=term)
+            term_token = single_term_tokenizer(term=term)
+            document_term_frequency = len(movie_index.get_documents(term=term_token))
+            total_documents_count = len(movie_index.docmap)
+            inverse_document_frequency = math.log((total_documents_count + 1) / (document_term_frequency + 1))
+            tf_idf_value = term_frequeny * inverse_document_frequency
+            print(f"TF-IDF score of '{args.term}' in document '{args.doc_id}': {tf_idf_value:.2f}")
+        case "bm25idf":
+            bm25idf =bm25_idf_command(query_text=args.term)
+            print(f"BM25 IDF score of '{args.term}': {bm25idf:.2f}")
+        case "bm25tf":
+            doc_id = args.doc_id
+            term = args.term
+            k1 = args.k1
+            b = args.b
+            bm25tf = bm25_tf_command(doc_id=doc_id,term=term, k1=k1, b=b)
+            print(f"BM25 TF score of '{args.term}' in document '{args.doc_id}': {bm25tf:.2f}")
         case _:
             parser.print_help()
 

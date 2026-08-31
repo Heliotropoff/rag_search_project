@@ -3,9 +3,13 @@ from nltk.stem import PorterStemmer
 import json
 import pickle
 from collections import Counter
-from collections import defaultdict
+import math
+import sys
+import os
 FILEPATH = "data/movies.json"
 STEMMER = PorterStemmer()
+BM25_K1 = 1.5
+BM25_B = 0.75
 
 def dropPunctuation(str_with_punctuation):
     punctuationChars = string.punctuation
@@ -84,13 +88,17 @@ class InvertedIndex:
         self.index: dict[str,set] = dict()
         self.docmap: dict[int,dict] = dict()
         self.term_frequencies: dict[int, Counter] = dict()
+        self.doc_lengths:dict[int,int] = dict()
         self.__index_filepath = "cache/index.pkl"
         self.__docmap_filepath = "cache/docmap.pkl"
         self.__term_freqspath = "cache/term_frequencies.pkl"
+        self.___doc_lengthspath = "cache/doc_lengths.pkl"
 
     def __add_document(self, doc_id, text):
         text_tokens = tokenize_text(text)
         word_list_for_counting = prepare_text_for_counting(text=text)
+        document_token_count = len(word_list_for_counting)
+        self.doc_lengths[doc_id] = document_token_count
         for token in text_tokens:
             if not self.index.get(token,False):
                 self.index[token] = set([doc_id])
@@ -121,6 +129,8 @@ class InvertedIndex:
             pickle.dump(obj=self.docmap,file=docmap_file)
         with open(self.__term_freqspath, "wb") as termfreqs_file:
             pickle.dump(obj=self.term_frequencies,file=termfreqs_file)
+        with open(self.___doc_lengthspath, "wb") as doc_length_file:
+            pickle.dump(obj=self.doc_lengths, file=doc_length_file)
 
     def load(self):
         with open(self.__index_filepath, "rb") as index_file:
@@ -129,9 +139,33 @@ class InvertedIndex:
             self.docmap = pickle.load(file=docmap_file)
         with open(self.__term_freqspath,"rb") as termfreqs_file:
             self.term_frequencies = pickle.load(file=termfreqs_file)
+        with open(self.___doc_lengthspath,"rb") as doc_lengths_file:
+            self.doc_lengths = pickle.load(file=doc_lengths_file)
+
+    def __get_avg_doc_length(self) -> float:
+        doc_count: int = len(self.doc_lengths)
+        if doc_count == 0:
+            return 0.0
+        sum_of_lengths:int = sum(self.doc_lengths.values())
+        avg_doc_length = sum_of_lengths / doc_count
+        return avg_doc_length
 
     def get_tf(self, doc_id, term):
         return self.term_frequencies[doc_id][term]
+
+    def get_bm25_idf(self, term: str) -> float:
+        total_n_documents:int = len(self.docmap)
+        document_frequency:int = len(self.index[term])
+        idf_score:float = math.log(((total_n_documents - document_frequency) + 0.5) / (document_frequency + 0.5) + 1)
+        return idf_score
+
+    def get_bm25_tf(self, doc_id, term, k1=BM25_K1, b=BM25_B):
+        doc_length = self.doc_lengths[doc_id]
+        avg_docs_lenght = self.__get_avg_doc_length()
+        length_normalisation_factor = 1 - b + b * (doc_length/avg_docs_lenght)
+        tf = self.get_tf(doc_id=doc_id,term=term)
+        tf_bm25 = (tf * (k1+1))/(tf +k1*length_normalisation_factor)
+        return tf_bm25
 
 def build_command():
     movie_index = InvertedIndex()
@@ -153,3 +187,26 @@ def prepare_text_for_counting(text):
             word_stem = STEMMER.stem(word=word)
             cleaned_from_stop_words_and_stemmed.append(word_stem)
     return cleaned_from_stop_words_and_stemmed
+
+
+def bm25_idf_command(query_text):
+    movie_index = InvertedIndex()
+    try:
+        movie_index.load()
+    except Exception as e:
+        print(e)
+        sys.exit(1)
+    term_token = single_term_tokenizer(term=query_text)
+    bm25_idf = movie_index.get_bm25_idf(term=term_token)
+    return bm25_idf
+
+def bm25_tf_command(doc_id, term, k1=BM25_K1, b=BM25_B):
+    movie_index = InvertedIndex()
+    try:
+        movie_index.load()
+    except Exception as e:
+        print(e)
+        sys.exit(1)
+    term_token = single_term_tokenizer(term=term)
+    bm25_tf = movie_index.get_bm25_tf(doc_id=doc_id,term=term_token, k1=k1, b=b)
+    return bm25_tf
