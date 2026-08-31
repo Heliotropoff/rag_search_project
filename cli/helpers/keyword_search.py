@@ -3,13 +3,15 @@ from nltk.stem import PorterStemmer
 import json
 import pickle
 from collections import Counter
+from collections import defaultdict
 FILEPATH = "data/movies.json"
 STEMMER = PorterStemmer()
 
 def dropPunctuation(str_with_punctuation):
     punctuationChars = string.punctuation
-    spaceReplacementString = " " * len(punctuationChars)
-    punctReplacementMap = str.maketrans(punctuationChars, spaceReplacementString)
+    #spaceReplacementString = " " * len(punctuationChars)
+    #punctReplacementMap = str.maketrans(punctuationChars, spaceReplacementString,"'")
+    punctReplacementMap = str.maketrans("","",punctuationChars)
     str_WITHOUT_punctuation = str_with_punctuation.translate(punctReplacementMap)
     return str_WITHOUT_punctuation
 
@@ -17,7 +19,7 @@ def dropPunctuation(str_with_punctuation):
 def normalise_term_string(query):
     p_query = query.lower()
     p_query = dropPunctuation(p_query)
-    p_query = p_query.replace("  ", " ")
+    #p_query = p_query.replace("  ", " ")
     return p_query
 
 
@@ -100,7 +102,7 @@ class InvertedIndex:
             self.term_frequencies[doc_id].update(word_list_for_counting)
 
     def get_documents(self, term):
-        docs = self.index.get(term,"")
+        docs = self.index[term]
         return sorted(docs)
 
     def build(self):

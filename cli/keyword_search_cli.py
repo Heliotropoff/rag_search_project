@@ -1,6 +1,7 @@
 import argparse
 from helpers.keyword_search import *
 import sys
+import math
 LIMIT = 5
 
 
@@ -16,6 +17,9 @@ def main() -> None:
     tf_parser = subparsers.add_parser("tf", help="Get the term frequency in the document")
     tf_parser.add_argument("doc_id", type=int, help= "Document id for which we are checking the term count")
     tf_parser.add_argument("term", type=str, help="Term we want to get a count of")
+
+    idf_parser = subparsers.add_parser("idf", help="Get the term inverse document frequency")
+    idf_parser.add_argument("term", type=str, help="Term for which we want to get an idf value")
 
 
     args = parser.parse_args()
@@ -50,6 +54,19 @@ def main() -> None:
             term_count_per_doc = movie_index.get_tf(doc_id=doc_id,term=term_token)
             #print(movie_index.term_frequencies[doc_id])
             print(term_count_per_doc)
+        case "idf":
+            movie_index = InvertedIndex()
+            try:
+                movie_index.load()
+            except Exception as e:
+                print(e)
+                sys.exit(1)
+            term = args.term
+            term_token = single_term_tokenizer(term=term)
+            associated_documents_count = len(movie_index.get_documents(term=term_token))
+            total_documents_count = len(movie_index.docmap)
+            term_idf_value = math.log((total_documents_count + 1) / (associated_documents_count + 1))
+            print(f"Inverse document frequency of '{args.term}': {term_idf_value:.2f}")
         case _:
             parser.print_help()
 
