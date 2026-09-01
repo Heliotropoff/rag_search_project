@@ -92,7 +92,7 @@ class InvertedIndex:
         self.__index_filepath = "cache/index.pkl"
         self.__docmap_filepath = "cache/docmap.pkl"
         self.__term_freqspath = "cache/term_frequencies.pkl"
-        self.___doc_lengthspath = "cache/doc_lengths.pkl"
+        self.__doc_lengthspath = "cache/doc_lengths.pkl"
 
     def __add_document(self, doc_id, text):
         text_tokens = tokenize_text(text)
@@ -129,7 +129,7 @@ class InvertedIndex:
             pickle.dump(obj=self.docmap,file=docmap_file)
         with open(self.__term_freqspath, "wb") as termfreqs_file:
             pickle.dump(obj=self.term_frequencies,file=termfreqs_file)
-        with open(self.___doc_lengthspath, "wb") as doc_length_file:
+        with open(self.__doc_lengthspath, "wb") as doc_length_file:
             pickle.dump(obj=self.doc_lengths, file=doc_length_file)
 
     def load(self):
@@ -139,7 +139,7 @@ class InvertedIndex:
             self.docmap = pickle.load(file=docmap_file)
         with open(self.__term_freqspath,"rb") as termfreqs_file:
             self.term_frequencies = pickle.load(file=termfreqs_file)
-        with open(self.___doc_lengthspath,"rb") as doc_lengths_file:
+        with open(self.__doc_lengthspath,"rb") as doc_lengths_file:
             self.doc_lengths = pickle.load(file=doc_lengths_file)
 
     def __get_avg_doc_length(self) -> float:
@@ -166,6 +166,25 @@ class InvertedIndex:
         tf = self.get_tf(doc_id=doc_id,term=term)
         tf_bm25 = (tf * (k1+1))/(tf +k1*length_normalisation_factor)
         return tf_bm25
+
+    def bm25(self, doc_id, term):
+        bm25_tf = self.get_bm25_tf(doc_id=doc_id, term=term)
+        bm25_idf = self.get_bm25_idf(term=term)
+        return bm25_tf * bm25_idf
+
+    def bm25_search(self, query, limit):
+        query_tokens = tokenize_text(query)
+        document_bm25_total_scores = dict()
+        for token in query_tokens:
+            relevant_docs = self.get_documents(term=token)
+            for doc in relevant_docs:
+                document_bm25_total_scores[doc]  = 0
+        for token in query_tokens:
+            for doc in document_bm25_total_scores:
+                document_bm25_total_scores[doc] += self.bm25(doc_id=doc, term=token)
+
+        top_n_document_scores = sorted(document_bm25_total_scores.items(), key=lambda item: item[1], reverse=True)[:limit]
+        return dict(top_n_document_scores)
 
 def build_command():
     movie_index = InvertedIndex()

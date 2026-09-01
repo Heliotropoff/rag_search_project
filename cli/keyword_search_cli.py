@@ -1,5 +1,5 @@
 import argparse
-from helpers.keyword_search import *
+from lib.keyword_search import *
 import sys
 import math
 LIMIT = 5
@@ -34,6 +34,9 @@ def main() -> None:
     bm25_tf_parser.add_argument("k1", type=float, nargs="?", default=BM25_K1, help="Tunable BM25 K1 parameter")
     bm25_tf_parser.add_argument("b", type=float, nargs="?", default=BM25_B, help = "Tubable BM25 b parameter")
 
+    bm25search_parser = subparsers.add_parser("bm25search", help="Search movies using full BM25 scoring")
+    bm25search_parser.add_argument("query", type=str, help="Search query")
+    bm25search_parser.add_argument("limit", type=int, nargs="?", default=5, help = "Optional argument to control number of returned results")
 
 
 
@@ -108,6 +111,27 @@ def main() -> None:
             b = args.b
             bm25tf = bm25_tf_command(doc_id=doc_id,term=term, k1=k1, b=b)
             print(f"BM25 TF score of '{args.term}' in document '{args.doc_id}': {bm25tf:.2f}")
+        case "bm25search":
+            query = args.query
+            limit = args.limit
+            movie_index = InvertedIndex()
+            try:
+                movie_index.load()
+            except Exception as e:
+                print(e)
+                sys.exit(1)
+            relevant_docs_and_scores = movie_index.bm25_search(query=query, limit=limit)
+            results = []
+            for doc_id, doc_socre in relevant_docs_and_scores.items():
+                title = movie_index.docmap[doc_id]["title"]
+                score = doc_socre
+                results.append(f"({doc_id}) {title} - Score: {score:.2f}")
+            for result in results:
+                print(result)
+
+
+
+
         case _:
             parser.print_help()
 
