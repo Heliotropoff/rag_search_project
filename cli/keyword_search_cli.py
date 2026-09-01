@@ -51,7 +51,7 @@ def main() -> None:
             query_raw = args.query
             query_tokens = tokenize_text(query_raw)
             print(f"Searching for: {query_raw}")
-            matches = searchFetchKeyWord(search_term_tokens=query_tokens, movieData= movie_index, limit=LIMIT)
+            matches = fetch_query_matches(search_term_tokens=query_tokens, movieData= movie_index, limit=LIMIT)
             for i in range(len(matches)):
                 print(f"{i+1}. Title: {matches[i].get("title")}, ID: {matches[i].get("id")}")
         case "build":

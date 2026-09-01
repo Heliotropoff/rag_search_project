@@ -66,7 +66,7 @@ def loadData():
          data = json.load(dataFile)
          return data
 
-def searchFetchKeyWord(search_term_tokens: set[str], movieData,limit:int = 5) ->list[dict]:
+def fetch_query_matches(search_term_tokens: set[str], movieData,limit:int = 5) ->list[dict]:
     matches: dict[int,None] = {}
     matched_movies: list[dict[str,int|str]] = []
     for term in search_term_tokens:
